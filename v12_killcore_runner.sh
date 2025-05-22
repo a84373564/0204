@@ -1,43 +1,54 @@
 #!/bin/bash
-# v12_killcore_runner.sh - Killcore 自動掛機巡邏流程（封頂防呆版）
+# v12_killcore_runner.sh - Killcore 自動掛機巡邏流程（封頂防呆＋即時顯示）
 
 LOCKFILE="/tmp/killcore_runner.lock"
 LOGFILE="/mnt/data/killcore/killcore_runner.log"
 STAMP=$(date '+%Y-%m-%d %H:%M:%S')
 
-# 防止重複執行
+# 防呆：已有執行中就退出
 if [ -f "$LOCKFILE" ]; then
-  echo "[v12][$STAMP] 已有掛機執行中，退出" >> "$LOGFILE"
+  echo "[v12][$STAMP] 已有掛機執行中，退出" | tee -a "$LOGFILE"
   exit 1
 fi
 touch "$LOCKFILE"
+START_TIME=$(date +%s)
 
-echo "========== [v12] Killcore 巡邏啟動：$STAMP ==========" >> "$LOGFILE"
+echo "========== [v12] 巡邏開始：$STAMP ==========" | tee -a "$LOGFILE"
 
-# 流程階段一：前置清理與選幣建構
-python3 /mnt/data/killcore/v01_auto_schema_guard.py >> "$LOGFILE" 2>&1
-python3 /mnt/data/killcore/v20_module_integrity_checker.py >> "$LOGFILE" 2>&1
-python3 /mnt/data/killcore/v02_symbol_pool_builder.py >> "$LOGFILE" 2>&1
-python3 /mnt/data/killcore/v03_symbol_rank_evaluator.py >> "$LOGFILE" 2>&1
-python3 /mnt/data/killcore/v04_dead_symbol_filter.py >> "$LOGFILE" 2>&1
+# 執行模組清單
+MODULES=(
+  "v01_auto_schema_guard.py"
+  "v20_module_integrity_checker.py"
+  "v02_symbol_pool_builder.py"
+  "v03_symbol_rank_evaluator.py"
+  "v04_dead_symbol_filter.py"
+  "v05_strategy_generator.py"
+  "v06_price_generator.py"
+  "v07_sandbox_engine.py"
+  "v08_evaluation_ruleset.py"
+  "v09_core_engine.py"
+  "v10_memory_bank.py"
+  "v11_king_pool.py"
+  "v16_eco_capital_allocator.py"
+  "v17_eco_realistic_executor.py"
+  "v18_eco_real_wallet_checker.py"
+  "v19_eco_live_trading_switch.py"
+  "v20_module_integrity_checker.py"
+)
 
-# 流程階段二：模組生成與沙盤競爭
-python3 /mnt/data/killcore/v05_strategy_generator.py >> "$LOGFILE" 2>&1
-python3 /mnt/data/killcore/v06_price_generator.py >> "$LOGFILE" 2>&1
-python3 /mnt/data/killcore/v07_sandbox_engine.py >> "$LOGFILE" 2>&1
-python3 /mnt/data/killcore/v08_evaluation_ruleset.py >> "$LOGFILE" 2>&1
-python3 /mnt/data/killcore/v09_core_engine.py >> "$LOGFILE" 2>&1
-python3 /mnt/data/killcore/v10_memory_bank.py >> "$LOGFILE" 2>&1
-python3 /mnt/data/killcore/v11_king_pool.py >> "$LOGFILE" 2>&1
+# 執行模組並即時顯示
+for MODULE in "${MODULES[@]}"; do
+  echo "[v12] 執行中：$MODULE" | tee -a "$LOGFILE"
+  python3 "/mnt/data/killcore/$MODULE" | tee -a "$LOGFILE"
+done
 
-# 流程階段三：模擬實戰與風控準備
-python3 /mnt/data/killcore/v16_eco_capital_allocator.py >> "$LOGFILE" 2>&1
-python3 /mnt/data/killcore/v17_eco_realistic_executor.py >> "$LOGFILE" 2>&1
-python3 /mnt/data/killcore/v18_eco_real_wallet_checker.py >> "$LOGFILE" 2>&1
-python3 /mnt/data/killcore/v19_eco_live_trading_switch.py >> "$LOGFILE" 2>&1
+# 顯示本輪王者
+LATEST_KING=$(jq -r '.name + " / " + .symbol + " / score=" + (.score|tostring)' /mnt/data/killcore/king_pool.json 2>/dev/null)
+echo "[v12] 本輪王者：$LATEST_KING" | tee -a "$LOGFILE"
 
-# 流程階段四：尾段結構防爆再掃一次
-python3 /mnt/data/killcore/v20_module_integrity_checker.py >> "$LOGFILE" 2>&1
-
-echo "[v12][$STAMP] Killcore 巡邏結束" >> "$LOGFILE"
+# 計算耗時
+END_TIME=$(date +%s)
+ELAPSED=$((END_TIME - START_TIME))
+echo "[v12] 執行時間：$ELAPSED 秒" | tee -a "$LOGFILE"
+echo "========== [v12] 巡邏結束 ==========" | tee -a "$LOGFILE"
 rm -f "$LOCKFILE"
