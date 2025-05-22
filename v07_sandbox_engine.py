@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# v07_sandbox_engine.py - 實戰摩擦成本版（含手續費與滑價）
+# v07_sandbox_engine.py - 含成本統計（cost_penalty）最終版
 
 import os, json, random
 
@@ -14,6 +14,7 @@ def simulate(prices, params):
     wins = 0
     losses = 0
     equity = [capital]
+    total_cost = 0
 
     for i in range(1, len(prices)):
         entry = prices[i - 1]
@@ -21,6 +22,7 @@ def simulate(prices, params):
         exit = prices[i] * (1 + slippage)
 
         fee = abs(entry * FEE_RATE + exit * FEE_RATE)
+        total_cost += fee
 
         if exit > entry:
             profit = capital * 0.01 - fee
@@ -41,7 +43,8 @@ def simulate(prices, params):
         "profit": total_return,
         "drawdown": abs(max_drawdown),
         "sharpe": sharpe,
-        "win_rate": win_rate
+        "win_rate": win_rate,
+        "cost_penalty": round(total_cost, 4)
     }
 
 def run_simulation(module_path, prices):
@@ -62,6 +65,7 @@ def run_simulation(module_path, prices):
     avg_drawdown = sum(r["drawdown"] for r in result.values()) / 4
     avg_sharpe = sum(r["sharpe"] for r in result.values()) / 4
     avg_win = sum(r["win_rate"] for r in result.values()) / 4
+    avg_cost = sum(r["cost_penalty"] for r in result.values()) / 4
 
     mod.update({
         "simulations": result,
@@ -70,7 +74,8 @@ def run_simulation(module_path, prices):
             "avg_profit": round(avg_profit, 2),
             "avg_drawdown": round(avg_drawdown, 2),
             "avg_sharpe": round(avg_sharpe, 2),
-            "avg_win_rate": round(avg_win, 4)
+            "avg_win_rate": round(avg_win, 4),
+            "avg_cost_penalty": round(avg_cost, 4)
         }
     })
 
@@ -90,7 +95,7 @@ def main():
         path = os.path.join(MODULE_DIR, fname)
         run_simulation(path, prices)
 
-    print(f"[v07] 模組沙盤模擬完成（含成本）：{len(files)} 支")
+    print(f"[v07] 模組沙盤模擬完成（含成本統計）：{len(files)} 支")
 
 if __name__ == "__main__":
     main()
