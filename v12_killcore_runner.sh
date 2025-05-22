@@ -1,21 +1,29 @@
 #!/bin/bash
-# v12_killcore_runner.sh - Killcore 自動掛機巡邏流程（封頂防呆＋即時顯示）
+# v12.2 Killcore 巡邏強化版：支援輪次統計、王者歷史記錄、即時輸出
 
 LOCKFILE="/tmp/killcore_runner.lock"
 LOGFILE="/mnt/data/killcore/killcore_runner.log"
+ROUND_FILE="/mnt/data/killcore/round_counter.txt"
+ROUND_LOG="/mnt/data/killcore/round_log.jsonl"
 STAMP=$(date '+%Y-%m-%d %H:%M:%S')
 
-# 防呆：已有執行中就退出
 if [ -f "$LOCKFILE" ]; then
-  echo "[v12][$STAMP] 已有掛機執行中，退出" | tee -a "$LOGFILE"
+  echo "[v12.2][$STAMP] 已有掛機執行中，退出" | tee -a "$LOGFILE"
   exit 1
 fi
 touch "$LOCKFILE"
 START_TIME=$(date +%s)
 
-echo "========== [v12] 巡邏開始：$STAMP ==========" | tee -a "$LOGFILE"
+# 輪次編號處理
+if [ ! -f "$ROUND_FILE" ]; then
+  echo "1" > "$ROUND_FILE"
+fi
+ROUND=$(cat "$ROUND_FILE")
+NEXT_ROUND=$((ROUND + 1))
+echo "$NEXT_ROUND" > "$ROUND_FILE"
 
-# 執行模組清單
+echo "========== [v12.2] 第 $ROUND 輪 巡邏開始：$STAMP ==========" | tee -a "$LOGFILE"
+
 MODULES=(
   "v01_auto_schema_guard.py"
   "v20_module_integrity_checker.py"
@@ -36,19 +44,24 @@ MODULES=(
   "v20_module_integrity_checker.py"
 )
 
-# 執行模組並即時顯示
 for MODULE in "${MODULES[@]}"; do
-  echo "[v12] 執行中：$MODULE" | tee -a "$LOGFILE"
+  echo "[v12.2] 執行中：$MODULE" | tee -a "$LOGFILE"
   python3 "/mnt/data/killcore/$MODULE" | tee -a "$LOGFILE"
 done
 
-# 顯示本輪王者
-LATEST_KING=$(jq -r '.name + " / " + .symbol + " / score=" + (.score|tostring)' /mnt/data/killcore/king_pool.json 2>/dev/null)
-echo "[v12] 本輪王者：$LATEST_KING" | tee -a "$LOGFILE"
+# 抓取王者資訊
+LATEST_KING=$(jq -r '.name' /mnt/data/killcore/king_pool.json 2>/dev/null)
+LATEST_SYMBOL=$(jq -r '.symbol' /mnt/data/killcore/king_pool.json 2>/dev/null)
+LATEST_SCORE=$(jq -r '.score' /mnt/data/killcore/king_pool.json 2>/dev/null)
 
-# 計算耗時
+echo "[v12.2] 本輪王者：$LATEST_KING / $LATEST_SYMBOL / score=$LATEST_SCORE" | tee -a "$LOGFILE"
+
 END_TIME=$(date +%s)
 ELAPSED=$((END_TIME - START_TIME))
-echo "[v12] 執行時間：$ELAPSED 秒" | tee -a "$LOGFILE"
-echo "========== [v12] 巡邏結束 ==========" | tee -a "$LOGFILE"
+echo "[v12.2] 執行時間：$ELAPSED 秒" | tee -a "$LOGFILE"
+echo "========== [v12.2] 巡邏結束 ==========" | tee -a "$LOGFILE"
+
+# 寫入 round_log.jsonl
+echo "{\"round\": $ROUND, \"timestamp\": \"$STAMP\", \"name\": \"$LATEST_KING\", \"symbol\": \"$LATEST_SYMBOL\", \"score\": $LATEST_SCORE, \"elapsed\": $ELAPSED}" >> "$ROUND_LOG"
+
 rm -f "$LOCKFILE"
