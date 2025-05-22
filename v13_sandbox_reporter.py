@@ -1,64 +1,54 @@
-#!/usr/bin/env python3
 import json
 from pathlib import Path
 
-KING_POOL_PATH = "/mnt/data/killcore/king_pool.json"
-CAPITAL_PATH = "/mnt/data/killcore/allocated_capital.json"
-VALIDATION_PATH = "/mnt/data/killcore/king_validation_result.json"
-OUTPUT_PATH = "/mnt/data/killcore/king_summary.txt"
+KING_PATH = Path("/mnt/data/killcore/king_pool.json")
+CAPITAL_PATH = Path("/mnt/data/killcore/allocated_capital.json")
+VALIDATION_PATH = Path("/mnt/data/killcore/king_validation_result.json")
+SUMMARY_PATH = Path("/mnt/data/killcore/king_summary.txt")
 
 def load_json(path):
-    if not Path(path).exists():
-        return None
-    with open(path, "r") as f:
-        return json.load(f)
+    if path.exists():
+        with open(path) as f:
+            return json.load(f)
+    return {}
 
-def write_report(king, capital_info, validation):
-    with open(OUTPUT_PATH, "w") as f:
-        f.write("[ 王者資訊報表 v13.1 - summary only ]\n\n")
-        f.write(f"模組名稱: {king.get('name', 'N/A')}\n")
-        f.write(f"幣別: {king.get('symbol', 'N/A')}\n")
-        f.write(f"策略類型: {king.get('strategy', 'N/A')}\n")
-        f.write(f"總得分: {king.get('score', 'N/A')}\n\n")
+def write_report(king, capital, final):
+    lines = []
+    lines.append("[ 王者資訊報表 v13.1 - summary only ]\n")
+    lines.append(f"模組名稱：{king.get('name')}")
+    lines.append(f"幣別：{king.get('symbol')}")
+    lines.append(f"策略類型：{king.get('strategy')}")
+    lines.append(f"總分：{king.get('score')}\n")
 
-        f.write("平均績效:\n")
-        metrics = king.get("metrics", {})
-        f.write(f"- 平均獲利: {metrics.get('avg_profit', 'N/A')}\n")
-        f.write(f"- 平均回撤: {metrics.get('avg_drawdown', 'N/A')}\n")
-        f.write(f"- 平均勝率: {metrics.get('avg_win_rate', 'N/A')}\n")
-        f.write(f"- 平均 Sharpe: {metrics.get('avg_sharpe', 'N/A')}\n\n")
+    metrics = king.get("metrics", {})
+    lines.append("平均績效：")
+    lines.append(f"- 平均獲利：{metrics.get('avg_profit', 'N/A')}")
+    lines.append(f"- 平均回撤：{metrics.get('avg_drawdown', 'N/A')}")
+    lines.append(f"- 平均勝率：{metrics.get('avg_win_rate', 'N/A')}")
+    lines.append(f"- 平均 Sharpe：{metrics.get('avg_sharpe', 'N/A')}\n")
 
-        f.write("資金配置:\n")
-        if capital_info:
-            f.write(f"- 配置資金: {capital_info.get('allocated_capital', 'N/A')} USDT\n")
-            f.write(f"- 可用總資金: {capital_info.get('total_available', 'N/A')} USDT\n")
-            f.write(f"- 來源: {capital_info.get('source', 'N/A')}\n\n")
-        else:
-            f.write("- 資訊缺失\n\n")
+    lines.append("資金配置：")
+    lines.append(f"- 配置資金：{capital.get('allocated_capital', 'N/A')} USDT")
+    lines.append(f"- 可用總資金：{capital.get('total_available', 'N/A')} USDT")
+    lines.append(f"- 來源：{capital.get('source', 'N/A')}\n")
 
-        f.write("實戰沙盤:\n")
-        if validation:
-            f.write(f"- Profit: {validation.get('profit_usdt', 'N/A')}\n")
-            f.write(f"- Drawdown: {validation.get('drawdown', 'N/A')}\n")
-            f.write(f"- Sharpe: {validation.get('sharpe', 'N/A')}\n")
-            f.write(f"- Win rate: {validation.get('win_rate', 'N/A')}\n")
-        else:
-            f.write("- 尚未模擬或缺少驗證資料\n")
+    lines.append("實戰沙盤：")
+    lines.append(f"- Profit：{final.get('profit_usdt', 'N/A')}")
+    lines.append(f"- Drawdown：{final.get('drawdown', 'N/A')}")
+    lines.append(f"- Sharpe：{final.get('sharpe', 'N/A')}")
+    lines.append(f"- Win rate：{final.get('win_rate', 'N/A')}\n")
+    lines.append("=== 結束 ===")
 
-        f.write("\n=== 結束 ===\n")
+    result = "\n".join(lines)
+    print(result)
 
-def main():
-    king_data = load_json(KING_POOL_PATH)
-    if not king_data:
-        print("[v13] 找不到王者模組資料")
-        return
-
-    capital_info = load_json(CAPITAL_PATH)
-    validation_info = load_json(VALIDATION_PATH)
-
-    king = king_data if isinstance(king_data, dict) else king_data[0]
-    write_report(king, capital_info, validation_info)
-    print(f"[v13] 王者報表完成，儲存於：{OUTPUT_PATH}")
+    with open(SUMMARY_PATH, "w") as f:
+        f.write(result + "\n")
 
 if __name__ == "__main__":
-    main()
+    king = load_json(KING_PATH)
+    capital = load_json(CAPITAL_PATH)
+    final = load_json(VALIDATION_PATH)
+
+    write_report(king, capital, final)
+    print(f"[v13] 王者報表完成，儲存於：{SUMMARY_PATH}")
