@@ -1,62 +1,60 @@
+# v13_sandbox_reporter.py
 import json
-import os
+from pathlib import Path
 
-REPORT_PATH = "/mnt/data/killcore/king_summary.txt"
 KING_POOL_PATH = "/mnt/data/killcore/king_pool.json"
 CAPITAL_PATH = "/mnt/data/killcore/allocated_capital.json"
+VALIDATION_PATH = "/mnt/data/killcore/king_validation_result.json"
+SUMMARY_PATH = "/mnt/data/killcore/king_summary.txt"
 
 def load_json(path):
     try:
         with open(path, "r") as f:
             return json.load(f)
-    except Exception as e:
-        print(f"[x] 無法讀取 {path}: {e}")
-        return None
+    except:
+        return {}
 
-def write_report(king):
-    lines = []
-    lines.append(f"王者名稱: {king.get('name', 'N/A')}")
-    lines.append(f"幣種: {king.get('symbol', 'N/A')}")
-    lines.append(f"策略: {king.get('strategy', 'N/A')}")
-    lines.append(f"分數: {king.get('score', 'N/A')}")
+def write_summary(king, capital, validation):
+    with open(SUMMARY_PATH, "w") as f:
+        f.write("[ 王者資訊報表 v13.1 - summary only ]\n\n")
+        f.write(f"模組名稱：{king.get('name', 'N/A')}\n")
+        f.write(f"幣別：{king.get('symbol', 'N/A')}\n")
+        f.write(f"策略類型：{king.get('strategy', 'N/A')}\n")
+        f.write(f"總分：{king.get('score', 'N/A')}\n\n")
 
-    sim = king.get("simulations", {})
-    lines.append("\n=== 模擬結果 ===")
-    for scenario in ["choppy", "uptrend", "downtrend", "volatile"]:
-        s = sim.get(scenario, {})
-        lines.append(f"- {scenario}")
-        lines.append(f"  獲利: {s.get('profit', 'N/A')}")
-        lines.append(f"  回撤: {s.get('drawdown', 'N/A')}")
-        lines.append(f"  勝率: {s.get('win_rate', 'N/A')}")
-        lines.append(f"  Sharpe: {s.get('sharpe', 'N/A')}")
+        f.write("平均績效：\n")
+        metrics = king.get("metrics", {})
+        f.write(f"  - 平均獲利：{metrics.get('avg_profit', 'N/A')}\n")
+        f.write(f"  - 平均回撤：{metrics.get('avg_drawdown', 'N/A')}\n")
+        f.write(f"  - 平均勝率：{metrics.get('avg_win_rate', 'N/A')}\n")
+        f.write(f"  - 平均 Sharpe：{metrics.get('avg_sharpe', 'N/A')}\n\n")
 
-    metrics = king.get("metrics", {})
-    lines.append("\n=== 總結指標 ===")
-    lines.append(f"平均獲利: {metrics.get('avg_profit', 'N/A')}")
-    lines.append(f"平均回撤: {metrics.get('avg_drawdown', 'N/A')}")
-    lines.append(f"平均勝率: {metrics.get('avg_win_rate', 'N/A')}")
-    lines.append(f"平均 Sharpe: {metrics.get('avg_sharpe', 'N/A')}")
+        f.write("資金配置：\n")
+        if capital:
+            f.write(f"  - 配置資金：{capital.get('allocated_capital', 'N/A')} USDT\n")
+            f.write(f"  - 可用總資金：{capital.get('total_available', 'N/A')} USDT\n")
+            f.write(f"  - 來源：{capital.get('source', 'N/A')}\n\n")
+        else:
+            f.write("  - 無法讀取資金配置資訊\n\n")
 
-    with open(REPORT_PATH, "w") as f:
-        f.write("\n".join(lines))
+        f.write("實戰沙盤：\n")
+        if validation:
+            f.write(f"  - Profit：{validation.get('profit', 'N/A')}\n")
+            f.write(f"  - Drawdown：{validation.get('drawdown', 'N/A')}\n")
+            f.write(f"  - Sharpe：{validation.get('sharpe', 'N/A')}\n")
+            f.write(f"  - Win rate：{validation.get('win_rate', 'N/A')}\n")
+        else:
+            f.write("  - 無實戰模擬資料\n")
+
+        f.write("\n=== 結束 ===\n")
 
 def main():
-    king_pool = load_json(KING_POOL_PATH)
-    if not king_pool:
-        print("[x] 找不到王者模組")
-        return
-    king = king_pool
-
-    cap_info = load_json(CAPITAL_PATH)
-    if cap_info:
-        cap = cap_info.get("capital_allocation", {})
-        king_usdt = cap.get(king["name"], "N/A")
-        print(f"[v13] 實戰資金分配：{king_usdt} USDT")
-    else:
-        print("[v13] 無法取得資金資料")
-
-    write_report(king)
-    print(f"[v13] 王者報表完成，儲存於：{REPORT_PATH}")
+    king_data = load_json(KING_POOL_PATH)
+    king = king_data if isinstance(king_data, dict) else {}
+    capital = load_json(CAPITAL_PATH)
+    validation = load_json(VALIDATION_PATH)
+    write_summary(king, capital, validation)
+    print("[v13] 王者報表完成，儲存於：", SUMMARY_PATH)
 
 if __name__ == "__main__":
     main()
