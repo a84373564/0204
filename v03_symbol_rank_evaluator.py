@@ -1,16 +1,16 @@
 #!/usr/bin/env python3
-# v03_symbol_rank_evaluator.py - 修正完成穩定版
+# v03_binance_rank_evaluator.py - 使用 Binance API 替代 MEXC
 import os, json, requests
 
 POOL_PATH = "/mnt/data/killcore/symbol_pool.json"
 OUTPUT_PATH = "/mnt/data/killcore/symbol_rank.json"
-API_URL = "https://api.mexc.com/api/v3/klines"
+API_URL = "https://api.binance.com/api/v3/klines"
 TIMEFRAME = "1h"
 LIMIT = 24
 
-def is_float(value):
+def is_float(val):
     try:
-        float(value)
+        float(val)
         return True
     except:
         return False
@@ -19,18 +19,19 @@ def fetch_volatility(symbol):
     try:
         url = f"{API_URL}?symbol={symbol}&interval={TIMEFRAME}&limit={LIMIT}"
         resp = requests.get(url, timeout=10)
-        kline = resp.json()
-        
-        highs = [float(k[2]) for k in kline if is_float(k[2])]
-        lows = [float(k[3]) for k in kline if is_float(k[3])]
-        open_price = float(kline[0][1]) if is_float(kline[0][1]) else None
+        data = resp.json()
+
+        if not isinstance(data, list) or len(data) < 2:
+            raise ValueError("無法取得合法 KLine")
+
+        highs = [float(k[2]) for k in data if is_float(k[2])]
+        lows = [float(k[3]) for k in data if is_float(k[3])]
+        open_price = float(data[0][1]) if is_float(data[0][1]) else None
 
         if not highs or not lows or open_price is None:
-            raise ValueError("Kline 資料格式不完整")
+            raise ValueError("數據不足或格式錯誤")
 
-        high = max(highs)
-        low = min(lows)
-        volatility = (high - low) / open_price
+        volatility = (max(highs) - min(lows)) / open_price
         return round(volatility, 5)
     except Exception as e:
         print(f"[錯誤] {symbol} 波動失敗：{e}")
@@ -38,7 +39,7 @@ def fetch_volatility(symbol):
 
 def main():
     if not os.path.exists(POOL_PATH):
-        print("[v03] 找不到 symbol_pool.json，請先執行 v02")
+        print("[v03] 未找到 symbol_pool.json")
         return
 
     with open(POOL_PATH, "r") as f:
