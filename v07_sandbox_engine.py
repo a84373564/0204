@@ -1,27 +1,34 @@
 #!/usr/bin/env python3
-# v07_sandbox_engine.py - Killcore 策略沙盤模擬器（多情境績效測試）
+# v07_sandbox_engine.py - 實戰摩擦成本版（含手續費與滑價）
 
 import os, json, random
 
 MODULE_DIR = "/mnt/data/killcore/modules"
 PRICE_PATH = "/mnt/data/killcore/price_simulations.json"
 
+FEE_RATE = 0.001  # 每次進出各 0.1%
+SLIPPAGE_RANGE = (-0.001, 0.001)  # ±0.1% 隨機滑價
+
 def simulate(prices, params):
-    # 模擬策略績效：簡化計算邏輯為測試用
     capital = 100
     wins = 0
     losses = 0
     equity = [capital]
-    
+
     for i in range(1, len(prices)):
         entry = prices[i - 1]
-        exit = prices[i]
+        slippage = random.uniform(*SLIPPAGE_RANGE)
+        exit = prices[i] * (1 + slippage)
+
+        fee = abs(entry * FEE_RATE + exit * FEE_RATE)
+
         if exit > entry:
-            profit = capital * 0.01
+            profit = capital * 0.01 - fee
             wins += 1
         else:
-            profit = -capital * 0.005
+            profit = -capital * 0.005 - fee
             losses += 1
+
         capital += profit
         equity.append(capital)
 
@@ -51,7 +58,6 @@ def run_simulation(module_path, prices):
     for scenario, data in prices[sym].items():
         result[scenario] = simulate(data, mod.get("params", {}))
 
-    # 統計平均績效（可自訂）
     avg_profit = sum(r["profit"] for r in result.values()) / 4
     avg_drawdown = sum(r["drawdown"] for r in result.values()) / 4
     avg_sharpe = sum(r["sharpe"] for r in result.values()) / 4
@@ -84,7 +90,7 @@ def main():
         path = os.path.join(MODULE_DIR, fname)
         run_simulation(path, prices)
 
-    print(f"[v07] 模組沙盤模擬完成：{len(files)} 支")
+    print(f"[v07] 模組沙盤模擬完成（含成本）：{len(files)} 支")
 
 if __name__ == "__main__":
     main()
