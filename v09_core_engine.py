@@ -8,8 +8,8 @@ KING_PATH = "/mnt/data/killcore/king_pool.json"
 RANKING_PATH = "/mnt/data/killcore/module_ranking.json"
 ARCHIVE_DIR = "/mnt/data/killcore/archives"
 
-MAX_MODULES = 500          # 每輪最多模組數（控制刪除）
-ARCHIVE_LIMIT = 50         # 最多保留幾隻歷代王者
+MAX_MODULES = 500
+ARCHIVE_LIMIT = 50
 
 def load_json(path):
     try:
@@ -28,10 +28,8 @@ def archive_king(new_king):
         [f for f in os.listdir(ARCHIVE_DIR) if f.endswith(".json")],
         key=lambda x: os.path.getctime(os.path.join(ARCHIVE_DIR, x))
     )
-
     if len(all_archives) >= ARCHIVE_LIMIT:
         os.remove(os.path.join(ARCHIVE_DIR, all_archives[0]))
-
     archive_path = os.path.join(ARCHIVE_DIR, f"{new_king['name']}.json")
     save_json(archive_path, new_king)
 
@@ -41,18 +39,26 @@ def main():
         print("[v09] 找不到有效排名資料")
         return
 
-    king = ranking[0]
-    save_json(KING_PATH, king)
-    archive_king(king)
+    new_king = ranking[0]
+    old_king = load_json(KING_PATH)
 
-    # 移除非王者模組
+    # 檢查是否連任，保留 king_count
+    if old_king and old_king.get("name") == new_king.get("name"):
+        new_king["king_count"] = old_king.get("king_count", 1) + 1
+    else:
+        new_king["king_count"] = 1
+
+    save_json(KING_PATH, new_king)
+    archive_king(new_king)
+
+    # 刪除非王者模組
     for fname in os.listdir(MODULE_DIR):
-        if fname.endswith(".json") and fname != king["name"]:
+        if fname.endswith(".json") and fname != new_king["name"] + ".json":
             os.remove(os.path.join(MODULE_DIR, fname))
 
-    print(f"[v09] 王者誕生：{king['name']}")
+    print(f"[v09] 王者誕生：{new_king['name']}（第 {new_king['king_count']} 次）")
     print(f"[v09] 已封存至：{KING_PATH}")
-    print(f"[v09] 所有非王者模組已淘汰，保留 1 隻")
+    print(f"[v09] 非王者模組已清除完畢，保留 1 隻")
 
 if __name__ == "__main__":
     main()
