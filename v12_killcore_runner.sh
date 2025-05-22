@@ -1,13 +1,12 @@
 #!/bin/bash
-# v12.3 - Killcore 巡邏主控腳本｜含防呆鎖、輪次記錄、穩定巡邏
+# v12.4 - Killcore 巡邏主控腳本｜含防呆鎖、輪次記錄、穩定巡邏
 
 LOCKFILE="/tmp/killcore_runner.lock"
 ROUND_FILE="/mnt/data/killcore/round_counter.txt"
-STAMP=$(date '+%Y-%m-%d %H:%M:%S')
 
 # 防止重複執行
 if [ -f "$LOCKFILE" ]; then
-  echo "[v12.3][$STAMP] 檢測到執行中，退出..."
+  echo "[v12.4][$(date '+%Y-%m-%d %H:%M:%S')] 檢測到執行中，退出..."
   exit 1
 fi
 touch "$LOCKFILE"
@@ -18,8 +17,9 @@ if [ ! -f "$ROUND_FILE" ]; then
 fi
 
 while true; do
+  STAMP=$(date '+%Y-%m-%d %H:%M:%S')
   ROUND=$(cat "$ROUND_FILE")
-  echo "[v12.3] === 第 $ROUND 輪 巡邏開始 @ $STAMP ==="
+  echo "[v12.4][$STAMP] === 第 $ROUND 輪 巡邏開始 ==="
 
   MODULES=(
     "v01_auto_schema_guard.py"
@@ -42,16 +42,14 @@ while true; do
   )
 
   for MODULE in "${MODULES[@]}"; do
-    echo "[v12.3] 執行中：$MODULE"
+    echo "[v12.4][$STAMP] 執行中：$MODULE"
     python3 "/mnt/data/killcore/$MODULE"
   done
 
-  echo "[v12.3] 第 $ROUND 輪 巡邏完成"
-  NEXT_ROUND=$((ROUND + 1))
-  echo "$NEXT_ROUND" > "$ROUND_FILE"
+  echo "[v12.4][$STAMP] 第 $ROUND 輪 巡邏完成"
+  NEXT=$((ROUND + 1))
+  echo "$NEXT" > "$ROUND_FILE"
 
-  echo "[v12.3] 等待 30 秒進入第 $NEXT_ROUND 輪..."
+  echo "[v12.4] 等待 30 秒後進入第 $NEXT 輪..."
   sleep 30
 done
-
-rm -f "$LOCKFILE"
